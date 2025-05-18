@@ -1,11 +1,10 @@
-# Use the official Tomcat image
 FROM tomcat:9.0
 
-# Copy your WAR file into the webapps directory
-COPY JtSpringProject-0.0.1-SNAPSHOT.war /usr/local/tomcat/webapps/
+# Clean the default webapps
+RUN rm -rf /usr/local/tomcat/webapps/*
 
-# Expose the default Tomcat port
-EXPOSE 8081
+# Copy the WAR file into Tomcat's webapps directory
+COPY target/JtSpringProject-0.0.1-SNAPSHOT.war /usr/local/tomcat/webapps/ROOT.war
 
-# Start Tomcat
-CMD ["catalina.sh", "run"]
+# Expose port
+EXPOSE 8080
