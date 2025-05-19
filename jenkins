@@ -1,0 +1,74 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven'  // Ensure this matches Jenkins tool config
+    }
+
+    environment {
+        IMAGE_NAME = 'vmns/dockerdcicd'
+        CREDENTIALS_ID = 'docker'
+        SONARQUBE_SERVER = 'sonar'
+        SONAR_PROJECT_KEY = 'sonar'
+        SONAR_PROJECT_NAME = 'sonar'
+        SONAR_HOST_URL = 'http://56.155.21.164:9000'
+        SONAR_LOGIN = 'd622d3063a1e1ce776b28f7c7c9be9cb27cf9a4a'
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/Mani137/E-commerce.git'
+            }
+        }
+
+        stage('Build with Maven') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    sh """
+                        mvn sonar:sonar \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+                        -Dsonar.host.url=${SONAR_HOST_URL} \
+                        -Dsonar.login=${SONAR_LOGIN}
+                    """
+                }
+            }
+        }
+
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${CREDENTIALS_ID}", usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        // Build Docker image (adjust path to Dockerfile if needed)
+                        sh "docker build -t ${IMAGE_NAME} ."
+                        
+                        // Login and Push
+                        sh 'docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD'
+                        sh "docker push ${IMAGE_NAME}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Docker Container') {
+            steps {
+                script {
+                    sh "docker run -dt --name conty -p 8081:8080 ${IMAGE_NAME}"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline completed.'
+        }
+    }
+}
